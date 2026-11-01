@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Task Tracker</title>
+<style>
+body { font-family: sans-serif; max-width: 600px; margin: 2em auto; padding: 0 1em; }
+h1 { font-size: 1.5em; }
+form { margin: 1em 0; }
+input[type="text"] { padding: 0.3em; width: 70%; }
+button { padding: 0.3em 0.6em; }
+ul { list-style: none; padding: 0; }
+li { margin: 0.5em 0; padding: 0.3em 0; border-bottom: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Task Tracker</h1>
+<form id="task-form" aria-label="Add task">
+  <label for="task-title">Task title</label>
+  <input id="task-title" type="text" autocomplete="off" aria-required="true" />
+  <button type="submit">Add task</button>
+</form>
+<ul id="task-list" aria-label="Tasks"></ul>
+<script>
+(function() {
+  async function loadTasks() {
+    try {
+      const res = await fetch("/api/tasks");
+      if (!res.ok) return;
+      const tasks = await res.json();
+      const list = document.getElementById("task-list");
+      list.innerHTML = "";
+      for (const t of tasks) {
+        const li = document.createElement("li");
+
+        const label = document.createElement("label");
+        label.htmlFor = "chk-" + t.id;
+        label.textContent = "Complete " + t.title;
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "chk-" + t.id;
+        checkbox.checked = t.done === true;
+        checkbox.addEventListener("change", async () => {
+          try {
+            await fetch("/api/tasks/" + t.id, {
+              method: "PATCH",
+              headers: {"Content-Type":"application/json"},
+              body: JSON.stringify({done: checkbox.checked})
+            });
+          } catch (e) {
+            // ignore network errors for simplicity
+          }
+          loadTasks();
+        });
+
+        const titleSpan = document.createElement("span");
+        titleSpan.textContent = t.title;
+
+        li.appendChild(checkbox);
+        li.appendChild(label);
+        li.appendChild(titleSpan);
+        list.appendChild(li);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  document.getElementById("task-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("task-title");
+    const title = input.value.trim();
+    if (title.length === 0 || title.length > 200) return;
+    try {
+      await fetch("/api/tasks", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({title: title})
+      });
+    } catch (e) {
+      // ignore
+    }
+    input.value = "";
+    loadTasks();
+  });
+
+  loadTasks();
+})();
+</script>
+</body>
+</html>
